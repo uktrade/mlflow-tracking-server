@@ -1,0 +1,72 @@
+version: "3"
+
+services:
+
+  tracking-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - backend-store
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_S3_ENDPOINT_URL:  http://mlflow-artifacts:9000
+      AWS_ACCESS_KEY_ID: AKIAIOSFODNN7EXAMPLE
+      AWS_SECRET_ACCESS_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      AWS_DEFAULT_REGION: eu-west-2
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --serve-artifacts
+      --artifacts-destination s3://mlflow-artifacts
+      --backend-store-uri postgresql://postgres:postgres@backend-store:5432/mlflow
+      --default-artifact-root http://nginx-proxy/api/2.0/mlflow-artifacts/artifacts/experiments
+      --gunicorn-opts "--log-level debug"
+
+  nginx-proxy:
+    build:
+      context: nginx
+      dockerfile: Dockerfile
+    depends_on:
+      - tracking-server
+    ports:
+      - "80:80"
+  backend-store:
+    image: postgres:12
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+  mlflow-artifacts:
+    image: minio/minio:RELEASE.2021-10-08T23-58-24Z.fips
+    environment:
+      MINIO_ROOT_USER: AKIAIOSFODNN7EXAMPLE
+      MINIO_ROOT_PASSWORD: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      MINIO_REGION: eu-west-2
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    entrypoint: sh
+    volumes:
+      - ".minio:/data"
+    command: ['-c', 'mkdir -p /data/my-bucket && minio server /data --console-address ":9001"']
+
+  client:
+    build:
+      context: .
+      dockerfile: "${DOCKERFILE:-Dockerfile}"
+    depends_on:
+      - nginx-proxy
+    environment:
+      MLFLOW_TRACKING_URI: http://nginx-proxy
+      MLFLOW_TRACKING_USERNAME: username
+      MLFLOW_TRACKING_PASSWORD: password
+
+volumes:
+  postgres_data:
+  minio:
