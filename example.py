@@ -12,9 +12,12 @@ import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import ElasticNet
+
 from urllib.parse import urlparse
 import mlflow
 import mlflow.sklearn
+from mlflow.models.signature import ModelSignature
+from mlflow.types.schema import Schema, ColSpec
 
 import logging
 
@@ -109,6 +112,16 @@ if __name__ == "__main__":
             # There are other ways to use the Model Registry, which depends on the use case,
             # please refer to the doc for more information:
             # https://mlflow.org/docs/latest/model-registry.html#api-workflow
-            mlflow.sklearn.log_model(lr, "model", registered_model_name="ElasticnetWineModel")
+
+            input_schema = Schema([
+            ColSpec("double", "sepal length (cm)"),
+            ColSpec("double", "sepal width (cm)"),
+            ColSpec("double", "petal length (cm)"),
+            ColSpec("double", "petal width (cm)"),
+            ])
+            output_schema = Schema([ColSpec("long")])
+            signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+            mlflow.sklearn.log_model(lr, "model", registered_model_name="ElasticnetWineModel", signature=signature)
         else:
             mlflow.sklearn.log_model(lr, "model")

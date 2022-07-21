@@ -22,17 +22,9 @@ services:
       --serve-artifacts
       --artifacts-destination s3://mlflow-artifacts
       --backend-store-uri postgresql://postgres:postgres@backend-store:5432/mlflow
-      --default-artifact-root http://nginx-proxy/api/2.0/mlflow-artifacts/artifacts/experiments
+      --default-artifact-root http://tracking-server:5000/api/2.0/mlflow-artifacts/artifacts/experiments
       --gunicorn-opts "--log-level debug"
 
-  nginx-proxy:
-    build:
-      context: nginx
-      dockerfile: Dockerfile
-    depends_on:
-      - tracking-server
-    ports:
-      - "80:80"
   backend-store:
     image: postgres:12
     volumes:
@@ -61,11 +53,9 @@ services:
       context: .
       dockerfile: "${DOCKERFILE:-Dockerfile}"
     depends_on:
-      - nginx-proxy
+      - tracking-server
     environment:
-      MLFLOW_TRACKING_URI: http://nginx-proxy
-      MLFLOW_TRACKING_USERNAME: username
-      MLFLOW_TRACKING_PASSWORD: password
+      MLFLOW_TRACKING_URI: http://tracking-server:5000
 
 volumes:
   postgres_data:
